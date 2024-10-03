@@ -85,7 +85,10 @@ def euler_from_quaternion(quat):
     Convert quaternion (w in last place) to euler roll, pitch, yaw.
     quat = [x, y, z, w]
     """
-    x, y, z, w = quat
+    x = quat.x
+    y = quat.y
+    z = quat.z
+    w = quat.w
 
     # Roll (x-axis rotation)
     t0 = 2.0 * (w * x + y * z)
