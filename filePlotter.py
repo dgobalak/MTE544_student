@@ -1,161 +1,155 @@
 import os
+import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
-from math import atan2, asin, cos, sin, isinf, isnan
-import argparse
+from math import cos, sin, isinf, isnan
 from utilities import FileReader
-import ast
 
-def plot_imu(filename):
-    headers, values = FileReader(filename).read_file()
-    time_list = []
-    first_stamp = values[0][-1]
+def plot_combined_figure(odom_file, imu_file, laser_file, title):
+    # Read Odom file
+    odom_headers, odom_values = FileReader(odom_file).read_file()
+    imu_headers, imu_values = FileReader(imu_file).read_file()
 
-    for val in values:
-        time_list.append(val[-1] - first_stamp)
+    odom_time = [val[-1] - odom_values[0][-1] for val in odom_values]
+    imu_time = [val[-1] - imu_values[0][-1] for val in imu_values]
 
-    for i in range(0, len(headers) - 1):
-        plt.plot(time_list, [lin[i] for lin in values], label=headers[i])
+    # Set up figure with 4 subplots (2 per row)
+    fig, axs = plt.subplots(2, 2, figsize=(14, 10))
 
-    # Set title of the plot to be the filename
-    plt.title(filename)
-    plt.xlabel("Time (s)")
-    plt.ylabel("IMU Values")
-    plt.legend()
-    plt.grid()
-    plt.show()
+    # First row, left: x vs y from Odom
+    axs[0, 0].plot([lin[0] for lin in odom_values], [lin[1] for lin in odom_values], label='x vs y')
+    axs[0, 0].set_title('x vs y')
+    axs[0, 0].set_xlabel('x (meters)')
+    axs[0, 0].set_ylabel('y (meters)')
+    axs[0, 0].legend()
 
+    # First row, right: x, y, and theta vs time with 2 y-axes
+    ax1 = axs[0, 1]
+    ax2 = ax1.twinx()
+    ax1.plot(odom_time, [lin[0] for lin in odom_values], 'g-', label='x')
+    ax1.plot(odom_time, [lin[1] for lin in odom_values], 'b-', label='y')
+    ax2.plot(odom_time, [lin[2] for lin in odom_values], 'r-', label='theta')
 
-def plot_odom(filename):
-    headers, values = FileReader(filename).read_file()
-    time_list = []
-    first_stamp = values[0][-1]
+    ax1.set_xlabel('Time (s)')
+    ax1.set_ylabel('Position (meters)')
+    ax2.set_ylabel('Theta (radians)')
+    ax1.legend(loc="upper left")
+    ax2.legend(loc="upper right")
+    ax1.set_title('x, y, and theta vs time')
 
-    # Plot x vs y, and x/y/yaw vs time in separate subplots
-    for val in values:
-        time_list.append(val[-1] - first_stamp)
+    # Second row, left: acc_x and acc_y vs time, angular_z with 2 y-axes
+    ax3 = axs[1, 0]
+    ax4 = ax3.twinx()
+    ax3.plot(imu_time, [lin[0] for lin in imu_values], 'g-', label='acc_x')
+    ax3.plot(imu_time, [lin[1] for lin in imu_values], 'b-', label='acc_y')
+    ax4.plot(imu_time, [lin[2] for lin in imu_values], 'r-', label='angular_z')
 
-    # Declare 1 figure with 2 subplots: one for x/y, one for x/y/yaw vs time
-    fig, axs = plt.subplots(3, figsize=(8, 6))
+    ax3.set_xlabel('Time (s)')
+    ax3.set_ylabel('Acceleration (m/s²)')
+    ax4.set_ylabel('Angular Velocity (rad/s)')
+    ax3.legend(loc="upper left")
+    ax4.legend(loc="upper right")
+    ax3.set_title('acc_x, acc_y, and angular_z vs time')
 
-    # Plot x vs y
-    axs[0].plot([lin[0] for lin in values], [lin[1] for lin in values], label='x vs y')
-    axs[0].set_title('x vs y')
-    axs[0].set_xlabel('x (meters)')
-    axs[0].set_ylabel('y (meters)')
-    axs[0].legend()
-
-    # Plot x/y vs time
-    axs[1].plot(time_list, [lin[0] for lin in values], label='x')
-    axs[1].plot(time_list, [lin[1] for lin in values], label='y')
-    axs[1].set_title('x/y/theta vs time')
-    axs[1].set_xlabel('Time (s)')
-    axs[1].set_ylabel('Position (meters)')
-    axs[1].legend()
-    
-    # plot theta vs time
-    axs[2].plot(time_list, [lin[2] for lin in values], label='theta')
-    axs[2].set_title('theta vs time')
-    axs[2].set_xlabel('Time (s)')
-    axs[2].set_ylabel('theta (radians)')
-    axs[2].legend()
-
-    # Set the overall title of the plot to be the filename
-    fig.suptitle(filename)
-
-    # Add space under title
-    plt.tight_layout()
-    plt.subplots_adjust(top=0.85)
-
-    plt.grid()
-    plt.show()
-
-
-def plot_first_laser_row(filename):
-    with open(filename, 'r') as file:
+    # Second row, right: Lidar data from all rows of laser file
+    with open(laser_file, 'r') as file:
         lines = file.readlines()
 
-    # Skip the header (first line)
-    data_line = lines[1].strip()  # Take the first data row (second line)
-
-    # Find the starting point of the ranges, which is within "array('f', [...])"
-    start = data_line.find("array('f', [") + len("array('f', [")
-    end = data_line.find("])")
+    # Use a colormap to depict different times
+    cmap = plt.get_cmap("viridis")
+    num_rows = len(lines) - 1  # Number of Lidar scans (skip header)
     
-    # Extract the ranges string and convert it to a list of floats
-    ranges_str = data_line[start:end].replace("inf", "float('inf')")
-    ranges = eval(f"[{ranges_str}]")  # Convert string to list of floats
+    # For the color bar, we create a ScalarMappable
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=num_rows)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])  # Empty array for the ScalarMappable
 
-    # Extract the angle_increment and timestamp (which are after the array)
-    rest_of_line = data_line[end+2:].strip()  # Everything after "])"
-    angle_increment, timestamp = rest_of_line.split(',')[-2:]
+    for i in range(1, num_rows):
+        data_line = lines[i].strip()
+        start = data_line.find("array('f', [") + len("array('f', [")
+        end = data_line.find("])")
+        ranges_str = data_line[start:end].replace("inf", "float('inf')")
+        ranges = eval(f"[{ranges_str}]")
 
-    # Convert them to appropriate types
-    angle_increment = float(angle_increment.strip())
-    timestamp = timestamp.strip()
+        rest_of_line = data_line[end+2:].strip()  # Everything after "])"
+        angle_increment, timestamp = rest_of_line.split(',')[1:3]
 
-    # Convert ranges and angle_increment to Cartesian coordinates
-    angles = np.arange(len(ranges)) * angle_increment
-    x = []
-    y = []
+        angle_increment = float(angle_increment.strip())
+        timestamp = timestamp.strip()
 
-    # Clean NaN and Inf values and convert to Cartesian coordinates
-    for r, a in zip(ranges, angles):
-        if not isinf(r) and not isnan(r):
-            x.append(r * cos(a))
-            y.append(r * sin(a))
+        angles = np.arange(len(ranges)) * angle_increment
+        x_lidar = []
+        y_lidar = []
+        
+        for r, a in zip(ranges, angles):
+            if not isinf(r) and not isnan(r):
+                x_lidar.append(r * cos(a))
+                y_lidar.append(r * sin(a))
 
-    # Plot the LIDAR data
-    plt.scatter(x, y, s=1)  # Small point size for LIDAR data
-    plt.title(f'LIDAR scan from {filename} at {timestamp}')
-    plt.xlabel('x (meters)')
-    plt.ylabel('y (meters)')
-    plt.grid(True)
-    plt.show()
+        # Plot each row with a color from the colormap
+        color = cmap(i / num_rows)  # Get color based on row index
+        axs[1, 1].scatter(x_lidar, y_lidar, s=1, color=color)
 
+    axs[1, 1].set_title(f'LIDAR scans over time')
+    axs[1, 1].set_xlabel('x (meters)')
+    axs[1, 1].set_ylabel('y (meters)')
+    axs[1, 1].grid(True)
 
-def euler_from_quaternion(x, y, z, w):
-    """
-    Convert quaternion (w in last place) to euler roll, pitch, yaw.
-    quat = [x, y, z, w]
-    """
-
-    # Roll (x-axis rotation)
-    t0 = 2.0 * (w * x + y * z)
-    t1 = 1.0 - 2.0 * (x * x + y * y)
-    roll = atan2(t0, t1)
-
-    # Pitch (y-axis rotation)
-    t2 = 2.0 * (w * y - z * x)
-    t2 = 1.0 if t2 > 1.0 else t2
-    t2 = -1.0 if t2 < -1.0 else t2
-    pitch = asin(t2)
-
-    # Yaw (z-axis rotation)
-    t3 = 2.0 * (w * z + x * y)
-    t4 = 1.0 - 2.0 * (y * y + z * z)
-    yaw = atan2(t3, t4)
-
-    return roll, pitch, yaw
-
+    # Add a color bar to represent time progression
+    cbar = fig.colorbar(sm, ax=axs[1, 1], orientation='vertical')
+    cbar.set_label('Lidar Scan Time (row index)')
+    # Set the overall title of the figure
+    fig.suptitle(title)
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.9)
+    
+    # save to same directory as the csv files
+    plt.savefig(f"{os.path.dirname(odom_file)}/{title}.png")
+    # plt.show()
+    
 
 def process_directory(directory):
+    # Process circle, line, spiral files
+    files_grouped = {
+        "circle": {},
+        "line": {},
+        "spiral": {}
+    }
+
     # List all CSV files in the given directory
     for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
         if filename.endswith(".csv"):
-            file_path = os.path.join(directory, filename)
-            print(f"Processing file: {file_path}")
-
-            # Determine which plot function to call based on the filename
             if "odom" in filename:
-                plot_odom(file_path)
+                if "circle" in filename:
+                    files_grouped["circle"]["odom"] = file_path
+                elif "line" in filename:
+                    files_grouped["line"]["odom"] = file_path
+                elif "spiral" in filename:
+                    files_grouped["spiral"]["odom"] = file_path
             elif "imu" in filename:
-                plot_imu(file_path)
+                if "circle" in filename:
+                    files_grouped["circle"]["imu"] = file_path
+                elif "line" in filename:
+                    files_grouped["line"]["imu"] = file_path
+                elif "spiral" in filename:
+                    files_grouped["spiral"]["imu"] = file_path
             elif "laser" in filename:
-                plot_first_laser_row(file_path)
+                if "circle" in filename:
+                    files_grouped["circle"]["laser"] = file_path
+                elif "line" in filename:
+                    files_grouped["line"]["laser"] = file_path
+                elif "spiral" in filename:
+                    files_grouped["spiral"]["laser"] = file_path
+
+    # Now that we have grouped files, plot for each set (circle, line, spiral)
+    for shape in files_grouped:
+        if all(key in files_grouped[shape] for key in ("odom", "imu", "laser")):
+            plot_combined_figure(files_grouped[shape]["odom"], files_grouped[shape]["imu"], files_grouped[shape]["laser"], f"{shape.capitalize()} Data")
 
 
 if __name__ == "__main__":
+    import argparse
     parser = argparse.ArgumentParser(description='Process all CSV files in a directory.')
     parser.add_argument('--dir', required=True, help='Directory containing the CSV files to process')
 
