@@ -130,9 +130,9 @@ def calculate_angular_error(current_pose, goal_pose):
     error_angular = theta_goal - theta_current
 
     # Ensure that the error is within the range [-pi, pi]
-    if error_angular > M_PI:
+    while error_angular > M_PI:
         error_angular -= 2 * M_PI
-    elif error_angular < -M_PI:
+    while error_angular < -M_PI:
         error_angular += 2 * M_PI
 
     return error_angular
