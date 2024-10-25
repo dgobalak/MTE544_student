@@ -27,10 +27,10 @@ class decision_maker(Node):
         
         # Part 5: Tune your parameters here
         if motion_type == POINT_PLANNER:
-            self.controller = controller(klp=0.2, klv=0.5, kap=0.8, kav=0.6)
+            self.controller = controller(klp=1, klv=0.5, kli=0.1, kap=1.2, kav=0.5, kai=0.1)
             self.planner = planner(POINT_PLANNER)    
         elif motion_type == TRAJECTORY_PLANNER:
-            self.controller = trajectoryController(klp=0.2, klv=0.5, kap=0.8, kav=0.6)
+            self.controller = trajectoryController(klp=1, klv=0.5, kli=0.1, kap=1.2, kav=0.5, kai=0.1)
             self.planner = planner(TRAJECTORY_PLANNER)
         else:
             print("Error! You don't have this planner", file=sys.stderr)
@@ -57,10 +57,10 @@ class decision_maker(Node):
         # Part 3: Check if you reached the goal
         if type(self.goal) == list:
             # Trajectory planner
-            reached_goal = calculate_linear_error(self.localizer.getPose(), self.goal[-1]) < 0.1
+            reached_goal = calculate_linear_error(self.localizer.getPose(), self.goal[-1]) < 0.05 and calculate_angular_error(self.localizer.getPose(), self.goal[-1]) < 1
         else: 
             # point planner
-            reached_goal = calculate_linear_error(self.localizer.getPose(), self.goal) < 0.1
+            reached_goal = calculate_linear_error(self.localizer.getPose(), self.goal) < 0.05 and calculate_angular_error(self.localizer.getPose(), self.goal) < 1
         
         if reached_goal:
             print("reached goal")
@@ -100,7 +100,7 @@ def main(args=None):
     
     # Part 4: Instantiate the decision_maker with the proper parameters for moving the robot
     if args.motion.lower() == "point":
-        DM = decision_maker(publisher_msg=Twist, publishing_topic="/cmd_vel", qos_publisher=odom_qos, goalPoint=[1, 1], motion_type=POINT_PLANNER)
+        DM = decision_maker(publisher_msg=Twist, publishing_topic="/cmd_vel", qos_publisher=odom_qos, goalPoint=[1, 0], motion_type=POINT_PLANNER)
     elif args.motion.lower() == "trajectory":
         DM = decision_maker(publisher_msg=Twist, publishing_topic="/cmd_vel", qos_publisher=odom_qos, goalPoint=None, motion_type=TRAJECTORY_PLANNER)
     else:

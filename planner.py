@@ -28,9 +28,8 @@ class planner:
     # TODO Part 6: Implement the trajectories here
     def trajectory_planner(self):
         # parabola for x in [0, 1.5]
-        return [[x, x**2] for x in np.linspace(0, 1.5, 100)]
+        return [[x, x**2] for x in np.linspace(0.0, 1.0, 20)]
         
+        # Uncomment when you want to run the sigmoid trajectory
         # sigmoid for x in [0, 2.5]
-        # return [[x, 2 / (1 + np.exp(-2*x)) - 1] for x in np.linspace(0, 2.5, 100)]
-
-
+        # return [[x, 2 / (1 + np.exp(-2*x)) - 1] for x in np.linspace(0, 2.5, 20)]
