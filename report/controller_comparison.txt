@@ -1,0 +1,8 @@
+Agility measured as the maximum rate of change of the error
+Accuracy is measured using the end state error
+Overshoot is measured using Peak Error - End State Error
+
+Controller Comparison Table (Linear and Angular):
+  Controller  Angular_Agility  Angular_Accuracy  Angular_Overshoot  Linear_Agility  Linear_Accuracy  Linear_Overshoot
+0          p         0.011274          0.044418           0.000000        0.036120         0.063911          0.936089
+1        pid         0.006173          0.061598           0.061598        0.049008         0.052684          0.947316
