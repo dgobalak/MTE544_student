@@ -108,10 +108,15 @@ def plot_errors(directory, controller_type="P"):
 
 
 def calculate_performance_metrics(controller_data):
-    agility = np.max(np.abs(np.diff(controller_data['e'])))  # Max rate of change of error
-    accuracy = np.abs(controller_data['e'].iloc[-1])         # End state error
-    overshoot = np.max(controller_data['e']) - controller_data['e'].iloc[-1]  # Peak error - end state error
+    # Compute agility as 1 / integral of absolute error
+    agility = 1.0 / np.trapz(np.abs(controller_data['e']), controller_data['stamp'] * 1e-9)
     
+    # Compute accuracy as 1 / absolute value of end state error
+    accuracy = 1.0 / np.abs(controller_data['e'].iloc[-1])
+
+    # Compute overshoot as peak error - end state error
+    overshoot = np.max(controller_data['e']) - controller_data['e'].iloc[-1]
+        
     return agility, accuracy, overshoot
 
 
