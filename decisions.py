@@ -7,6 +7,7 @@ from rclpy import init, spin, spin_once
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 
+from utilities import Logger
 
 from rclpy.qos import QoSProfile
 from nav_msgs.msg import Odometry as odom
@@ -26,7 +27,10 @@ class decision_maker(Node):
 
         self.publisher=self.create_publisher(publisher_msg, publishing_topic, qos_profile=qos_publisher)
         
-        
+        self.pub_period = 1/rate
+        self.ts = 0
+        self.cmd_logger=Logger( "commands.csv" , ["v", "w", "ts"])
+
         publishing_period=1/rate
 
         self.reachThreshold=0.01
@@ -76,6 +80,10 @@ class decision_maker(Node):
             self.linearVelocity += 0.01 if self.linearVelocity < 1.0 else 0.0
             vel_msg.linear.x=self.linearVelocity
             vel_msg.angular.z=1.0
+
+            self.cmd_logger.log_values([self.linearVelocity, 1.0, self.ts])
+            self.ts += self.pub_period
+
             self.publisher.publish(vel_msg)
             return
 
@@ -102,6 +110,10 @@ class decision_maker(Node):
         vel_msg.linear.x=velocity
         vel_msg.angular.z=yaw_rate
         
+        self.cmd_logger.log_values([velocity, yaw_rate, self.ts])
+
+        self.ts += self.pub_period
+        
         self.publisher.publish(vel_msg)
 
 
@@ -113,11 +125,11 @@ def main(args=None):
     
     
     if args.motion == "point":
-        DM=decision_maker(Twist, "/cmd_vel", 10, motion_type=POINT_PLANNER)
+        DM=decision_maker(Twist, "/cmd_vel", 3, motion_type=POINT_PLANNER)
     elif args.motion == "trajectory":
-        DM=decision_maker(Twist, "/cmd_vel", 10, motion_type=TRAJECTORY_PLANNER)
+        DM=decision_maker(Twist, "/cmd_vel", 3, motion_type=TRAJECTORY_PLANNER)
     elif args.motion == "spiral":
-        DM=decision_maker(Twist, "/cmd_vel", 10, motion_type=SPIRAL_4TUNE)
+        DM=decision_maker(Twist, "/cmd_vel", 3, motion_type=SPIRAL_4TUNE)
     else:
         print("invalid motion type", file=sys.stderr)
         return

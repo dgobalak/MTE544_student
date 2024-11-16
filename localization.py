@@ -25,7 +25,7 @@ odom_qos=QoSProfile(reliability=2, durability=2, history=1, depth=10)
 
 class localization(Node):
     
-    def __init__(self, type, dt, loggerName="robotPose.csv", loggerHeaders=["imu_ax", "imu_ay", "kf_ax", "kf_ay","kf_vx","kf_w","kf_x", "kf_y","stamp"]):
+    def __init__(self, type, dt, loggerName="robotPose.csv", loggerHeaders=["odom_x", "odom_y","imu_ax", "imu_ay", "kf_ax", "kf_ay","kf_vx","kf_w","kf_x", "kf_y","stamp"]):
 
         super().__init__("localizer")
 
@@ -46,7 +46,7 @@ class localization(Node):
     def initKalmanfilter(self, dt):
         x = np.array([0, 0, 0, 0, 0, 0])  # Initial state [x, y, th, w, v, vdot]
         Q = np.eye(6) * 0.5               # Initial covariance of the process
-        R = np.eye(4) * 0.5               # Initial covariance of the measurements
+        R = np.eye(4) * 0.8               # Initial covariance of the measurements
         P = np.eye(6) * 1.0               # Initial covariance of the estimate
         
         self.kf=kalman_filter(P,Q,R, x, dt)
@@ -70,6 +70,9 @@ class localization(Node):
         w = odom_msg.twist.twist.angular.z
         ax = imu_msg.linear_acceleration.x
         ay = imu_msg.linear_acceleration.y
+
+        x = odom_msg.pose.pose.position.x
+        y = odom_msg.pose.pose.position.y
         
         z = np.array([v, w, ax, ay])
         
@@ -84,7 +87,7 @@ class localization(Node):
         self.pose = np.array([xhat[0], xhat[1], xhat[2], imu_msg.header.stamp])
 
         # TODO Part 4: log your data
-        self.loc_logger.log_values([ax, ay, xhat[5], xhat[3]*xhat[4], xhat[4], xhat[3], xhat[0], xhat[1], (imu_msg.header.stamp.sec + imu_msg.header.stamp.nanosec*1e-9)])
+        self.loc_logger.log_values([x, y, ax, ay, xhat[5], xhat[3]*xhat[4], xhat[4], xhat[3], xhat[0], xhat[1], (imu_msg.header.stamp.sec + imu_msg.header.stamp.nanosec*1e-9)])
       
     def odom_callback(self, pose_msg):
         
