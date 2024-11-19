@@ -1,81 +1,95 @@
-import matplotlib.pyplot as plt
-from utilities import FileReader
 import pandas as pd
 import numpy as np
-
-
-def plot_errors(filename):
-    
-    headers, values=FileReader(filename).read_file()
-    
-    time_list=[]
-    
-    first_stamp=values[0][-1]
-    
-    for val in values:
-        time_list.append(val[-1] - first_stamp)
-
-
-    
-    fig, axes = plt.subplots(2,1, figsize=(14,6))
-    
-    df = pd.read_csv("commands.csv")
-    df['dt'] = df[' ts'].diff().fillna(0)
-
-    velocity_x = [0]  # starting velocity assumed to be 0
-    velocity_y = [0]
-    position_x = [0]  # starting position assumed to be 0
-    position_y = [0]
-    theta = [0]
-
-    for i in range(1, len(df)):
-        theta.append(theta[-1] + df[' w'].iloc[i] * df['dt'].iloc[i])
-        vx = df["v"].iloc[i] * np.cos(theta[i])
-        vy = df["v"].iloc[i] * np.sin(theta[i])
-
-        velocity_x.append(vx)
-        velocity_y.append(vy)
-        
-        px = position_x[-1] + vx * df['dt'].iloc[i]
-        py = position_y[-1] + vy * df['dt'].iloc[i]
-
-        position_x.append(px)
-        position_y.append(py)
-
-    axes[0].plot([lin[len(headers) - 3] for lin in values], [lin[len(headers) - 2] for lin in values])
-    axes[0].plot([lin[0] for lin in values], [lin[1] for lin in values])    
-    axes[0].set_title("state space")
-    axes[0].grid()
-    axes[0].set_aspect('equal', adjustable='box')
-    
-    axes[1].set_title("each individual state")
-    for i in range(0, len(headers) - 1):
-        axes[1].plot(time_list, [lin[i] for lin in values], label= headers[i])
-
-    axes[1].legend()
-    axes[1].grid()
-
-    plt.show()
-    
-    
-
-
-
-
-
+import matplotlib.pyplot as plt
 import argparse
 
-if __name__=="__main__":
 
-    parser = argparse.ArgumentParser(description='Process some files.')
-    parser.add_argument('--files', nargs='+', required=True, help='List of files to process')
-    
+def process_and_plot(pose_file, command_file):
+    # Load the data
+    pose_df = pd.read_csv(pose_file)
+    command_df = pd.read_csv(command_file)
+
+    # Strip whitespace from column names
+    pose_df.columns = pose_df.columns.str.strip()
+    command_df.columns = command_df.columns.str.strip()
+
+    # Compute relative time
+    command_df['dt'] = command_df['ts'].diff().fillna(0)
+    command_time = command_df['ts'] - command_df['ts'].iloc[0]
+
+    # Integrate velocity commands for position (ideal path)
+    integrated_x = [0]
+    integrated_y = [0]
+    integrated_theta = [0]
+    for i in range(1, len(command_df)):
+        theta_new = integrated_theta[-1] + command_df['w'].iloc[i] * command_df['dt'].iloc[i]
+        integrated_theta.append(theta_new)
+        
+        dx = command_df['v'].iloc[i] * np.cos(theta_new) * command_df['dt'].iloc[i]
+        dy = command_df['v'].iloc[i] * np.sin(theta_new) * command_df['dt'].iloc[i]
+        
+        integrated_x.append(integrated_x[-1] + dx)
+        integrated_y.append(integrated_y[-1] + dy)
+
+    fig, axs = plt.subplots(1, 5, figsize=(18, 5))
+
+    # Plot 1: Position comparison (integrated commands, odom measurements, and Kalman Filter estimate)
+    axs[0].plot(integrated_x, integrated_y, label='Integrated Commands', linestyle='dotted')
+    if 'odom_x' in pose_df and 'odom_y' in pose_df:
+        axs[0].plot(pose_df['odom_x'], pose_df['odom_y'], label='Pose', linestyle='dashed')
+    axs[0].plot(pose_df['kf_x'], pose_df['kf_y'], label='Kalman Filter Estimate')
+    axs[0].set_title('Position Comparison')
+    axs[0].set_xlabel('X Position')
+    axs[0].set_ylabel('Y Position')
+    axs[0].legend()
+    axs[0].grid(True)
+    axs[0].set_aspect('equal', adjustable='box')
+
+    # Plot 2: Acceleration (Ax) comparison
+    axs[1].plot(pose_df['stamp'] - pose_df['stamp'].iloc[0], pose_df['imu_ax'], label='IMU Ax')
+    axs[1].plot(pose_df['stamp'] - pose_df['stamp'].iloc[0], pose_df['kf_ax'], label='Kalman Filter Ax', linestyle='dotted')
+    axs[1].set_title('Ax Comparison')
+    axs[1].set_xlabel('Time (s)')
+    axs[1].set_ylabel('Ax')
+    axs[1].legend()
+    axs[1].grid(True)
+
+    # Plot 3: Acceleration (Ay) comparison
+    axs[2].plot(pose_df['stamp'] - pose_df['stamp'].iloc[0], pose_df['imu_ay'], label='IMU Ay')
+    axs[2].plot(pose_df['stamp'] - pose_df['stamp'].iloc[0], pose_df['kf_ay'], label='Kalman Filter Ay', linestyle='dotted')
+    axs[2].set_title('Ay Comparison')
+    axs[2].set_xlabel('Time (s)')
+    axs[2].set_ylabel('Ay')
+    axs[2].legend()
+    axs[2].grid(True)
+
+    # Plot 4: Velocity (Vx) comparison
+    axs[3].plot(command_time, command_df['v'], label='Command Vx', linestyle='dotted')
+    axs[3].plot(pose_df['stamp'] - pose_df['stamp'].iloc[0], pose_df['kf_vx'], label='Kalman Filter Vx')
+    axs[3].set_title('Vx Comparison')
+    axs[3].set_xlabel('Time (s)')
+    axs[3].set_ylabel('Vx')
+    axs[3].legend()
+    axs[3].grid(True)
+
+    # Plot 5: Angular Velocity (W) comparison
+    axs[4].plot(command_time, command_df['w'], label='Command W', linestyle='dotted')
+    axs[4].plot(pose_df['stamp'] - pose_df['stamp'].iloc[0], pose_df['kf_w'], label='Kalman Filter W')
+    axs[4].set_title('W Comparison')
+    axs[4].set_xlabel('Time (s)')
+    axs[4].set_ylabel('W')
+    axs[4].legend()
+    axs[4].grid(True)
+
+    plt.suptitle(f'EKF Results: Point Q={0.5} R={0.8}', fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])    
+    plt.show()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Plot EKF results from data files.")
+    parser.add_argument("pose_file", type=str, help="Path to the pose CSV file")
+    parser.add_argument("command_file", type=str, help="Path to the command CSV file")
     args = parser.parse_args()
-    
-    print("plotting the files", args.files)
 
-    filenames=args.files
-    for filename in filenames:
-        plot_errors(filename)
-
-
+    process_and_plot(args.pose_file, args.command_file)
