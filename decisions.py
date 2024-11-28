@@ -43,12 +43,11 @@ class decision_maker(Node):
         publishing_period=1/rate
 
         # TODO PART 5 choose your threshold
-        self.reachThreshold = 0.2
+        self.reachThreshold = 0.1
 
         # TODO PART 5 your localization type
-        self.localizer = localization(kalmanFilter)
-
-
+        # self.localizer = localization(kalmanFilter)
+        self.localizer = localization(rawSensors, loggerHeaders=["x", "y", "th", "ts"])
         
         if motion_type==POINT_PLANNER:
             self.controller=controller(klp=1, klv=0.5, kli=0.1, kap=1.2, kav=0.5, kai=0.1)
