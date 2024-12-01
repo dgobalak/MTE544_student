@@ -167,7 +167,7 @@ def search(maze, start, end, heuristic_method="euclidean"):
                 continue
 
             # Make sure walkable terrain
-            if maze[node_position[0], node_position[1]] > 0.8:
+            if maze[node_position[0], node_position[1]] > 0.6:
                 continue
 
             # Create new node
